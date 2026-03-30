@@ -17,3 +17,4 @@ django-soft-delete
 twilio
 openpyxl
 Pillow
+six

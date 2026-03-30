@@ -70,7 +70,6 @@ target/
 *.pyc
 __pycache__/
 local_settings.py
-core/migrations/*
 
 
 .env
@@ -82,8 +81,3 @@ media
 *.sqlite3
 *.idea
 .idea/*
-user/migrations
-order/migrations
-mandob/migrations
-deliverycompany/migrations
-captain/migrations

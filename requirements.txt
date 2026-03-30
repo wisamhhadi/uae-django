@@ -1,6 +1,5 @@
 Django
 gunicorn
-uvicorn
 whitenoise
 django-autocomplete-light
 channels

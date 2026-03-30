@@ -1,0 +1,983 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+
+<style>
+    .monitoring-container {
+        height: calc(100vh - 4rem);
+        overflow: hidden;
+    }
+
+    .monitoring-row {
+        height: 100%;
+    }
+
+    .map-column {
+        height: 100%;
+        padding: 0;
+    }
+
+    .sidebar-column {
+        height: 100%;
+        padding: 0;
+    }
+
+    .map-section {
+        height: 100%;
+        position: relative;
+    }
+
+    .sidebar-monitoring {
+        height: 100%;
+        background: white;
+        border-left: 3px solid var(--primary-color);
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+    }
+
+    #map {
+        height: 100%;
+        width: 100%;
+        border-radius: 8px;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
+        padding: 1.5rem 0;
+        margin: -2rem -2rem 2rem -2rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .search-section {
+        padding: 1.5rem;
+        border-bottom: 2px solid #e9ecef;
+        background: #f8f9fa;
+    }
+
+    .search-box {
+        position: relative;
+    }
+
+    .search-input {
+        border: 2px solid #dee2e6;
+        border-radius: 25px;
+        padding: 12px 20px 12px 45px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+    }
+
+    .search-icon {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+
+    .clear-search {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        display: none;
+    }
+
+    .filters-section {
+        margin-top: 1rem;
+    }
+
+    .filter-chip {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        margin: 0.25rem;
+        background: #e9ecef;
+        border: 1px solid #dee2e6;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .filter-chip.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .filter-chip:hover {
+        background: #dee2e6;
+    }
+
+    .filter-chip.active:hover {
+        background: var(--primary-dark);
+    }
+
+    .captains-list {
+        padding: 0;
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-height: 0;
+        scroll-behavior: smooth;
+    }
+
+    .captain-item {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .captain-item:hover {
+        background: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .captain-item.active {
+        background: #e8f5e8;
+        border-left: 4px solid var(--primary-color);
+    }
+
+    .captain-status {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 8px;
+        position: relative;
+    }
+
+    .captain-status.online {
+        background: #28a745;
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
+        animation: pulse 2s infinite;
+    }
+
+    .captain-status.offline {
+        background: #6c757d;
+        box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.3);
+    }
+
+    .captain-status.driving {
+        background: #007bff;
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3);
+        animation: pulse 2s infinite;
+    }
+
+    .captain-status.busy {
+        background: #ffc107;
+        box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.3);
+    }
+
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+        }
+        70% {
+            box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+        }
+    }
+
+    .captain-info h6 {
+        margin-bottom: 0.25rem;
+        color: #495057;
+        font-weight: 600;
+    }
+
+    .captain-details {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+
+    .captain-location {
+        font-size: 0.75rem;
+        color: var(--primary-color);
+    }
+
+    .captain-vehicle {
+        font-size: 0.75rem;
+        color: #007bff;
+        margin-bottom: 0.25rem;
+    }
+
+    .stats-section {
+        padding: 1rem 1.5rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .stat-item {
+        text-align: center;
+        padding: 0.5rem;
+    }
+
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+        opacity: 0.9;
+    }
+
+    .map-controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .map-control-btn {
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        cursor: pointer;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+
+    .map-control-btn:hover {
+        background: #f8f9fa;
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    .legend {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 0.85rem;
+    }
+
+    .legend-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        margin-left: 8px;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        display: none;
+    }
+
+    .loading-spinner {
+        text-align: center;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 0;
+    }
+
+    /* Custom marker styles */
+    .captain-marker {
+        background: #28a745;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+    }
+
+    .captain-marker.driving {
+        background: #007bff;
+        animation: pulse 2s infinite;
+    }
+
+    .captain-marker.offline {
+        background: #6c757d;
+    }
+
+    .captain-marker.busy {
+        background: #ffc107;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .monitoring-container {
+            height: auto;
+            min-height: 100vh;
+        }
+
+        .monitoring-row {
+            flex-direction: column;
+            height: auto;
+        }
+
+        .map-column {
+            height: 60vh;
+        }
+
+        .sidebar-column {
+            height: 40vh;
+        }
+
+        .sidebar-monitoring {
+            border-left: none;
+            border-top: 3px solid var(--primary-color);
+        }
+
+        .captains-list {
+            max-height: calc(40vh - 250px);
+        }
+
+        .map-controls {
+            top: 10px;
+            left: 10px;
+        }
+
+        .legend {
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+        }
+    }
+
+    /* Custom scrollbar for sidebar and captains list */
+    .sidebar-monitoring::-webkit-scrollbar,
+    .captains-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .sidebar-monitoring::-webkit-scrollbar-track,
+    .captains-list::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    .sidebar-monitoring::-webkit-scrollbar-thumb,
+    .captains-list::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
+
+    .sidebar-monitoring::-webkit-scrollbar-thumb:hover,
+    .captains-list::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    .refresh-btn {
+        animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h4 mb-0">
+                    <i class="fas fa-users-cog me-2"></i>
+                    مراقبة السائقين في الوقت الفعلي
+                </h1>
+                <p class="mb-0 opacity-75">تتبع مواقع وحالات جميع السائقين</p>
+            </div>
+            <div class="col-auto">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-light btn-sm" id="refreshData">
+                        <i class="fas fa-sync me-1" id="refreshIcon"></i>
+                        تحديث
+                    </button>
+
+                    <a href="{% url 'list_captain' %}" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-list me-1"></i>
+                        إدارة السائقين
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="monitoring-container">
+    <div class="row monitoring-row">
+        <!-- Map Section -->
+        <div class="col-lg-8 map-column">
+            <div class="map-section">
+                <!-- Map Container -->
+                <div id="map"></div>
+
+                <!-- Map Controls -->
+                <div class="map-controls">
+                    <button class="map-control-btn" title="تحديث المواقع" id="refreshMap">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                    <button class="map-control-btn" title="عرض جميع السائقين" id="fitAllMarkers">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button class="map-control-btn" title="الموقع الحالي" id="getCurrentLocation">
+                        <i class="fas fa-location-arrow"></i>
+                    </button>
+                    <button class="map-control-btn" title="طبقات الخريطة" id="toggleLayers">
+                        <i class="fas fa-layer-group"></i>
+                    </button>
+                </div>
+
+                <!-- Map Legend -->
+                <div class="legend">
+                    <h6 class="mb-3">حالة السائقين</h6>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #28a745;"></div>
+                        <span>متاح للعمل</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #007bff;"></div>
+                        <span>في رحلة</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffc107;"></div>
+                        <span>مشغول</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #6c757d;"></div>
+                        <span>غير متصل</span>
+                    </div>
+                </div>
+
+                <!-- Loading Overlay -->
+                <div class="loading-overlay" id="mapLoading">
+                    <div class="loading-spinner">
+                        <div class="spinner-border text-success" role="status"></div>
+                        <div class="mt-2">جاري تحميل البيانات...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4 sidebar-column">
+            <div class="sidebar-monitoring">
+                <!-- Statistics Section -->
+                <div class="stats-section">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="stat-item">
+                                <div class="stat-number" id="totalCaptains">0</div>
+                                <div class="stat-label">إجمالي السائقين</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-item">
+                                <div class="stat-number" id="onlineCaptains">0</div>
+                                <div class="stat-label">متصل الآن</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="stat-number text-light" id="availableCaptains">0</div>
+                                <div class="stat-label">متاح</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="stat-number text-info" id="drivingCaptains">0</div>
+                                <div class="stat-label">في رحلة</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="stat-number text-warning" id="busyCaptains">0</div>
+                                <div class="stat-label">مشغول</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Section -->
+                <div class="search-section">
+                    <div class="search-box">
+                        <input type="text" class="form-control search-input" id="captainSearch"
+                               placeholder="ابحث عن سائق...">
+                        <i class="fas fa-search search-icon"></i>
+                        <button class="clear-search" id="clearSearch">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters-section">
+                        <div class="filter-chip active" data-filter="all">
+                            <i class="fas fa-users me-1"></i>
+                            الكل
+                        </div>
+                        <div class="filter-chip" data-filter="online">
+                            <i class="fas fa-check-circle me-1" style="color: #28a745;"></i>
+                            متاح
+                        </div>
+                        <div class="filter-chip" data-filter="driving">
+                            <i class="fas fa-car me-1" style="color: #007bff;"></i>
+                            في رحلة
+                        </div>
+                        <div class="filter-chip" data-filter="busy">
+                            <i class="fas fa-exclamation-circle me-1" style="color: #ffc107;"></i>
+                            مشغول
+                        </div>
+                        <div class="filter-chip" data-filter="offline">
+                            <i class="fas fa-wifi me-1" style="color: #6c757d;"></i>
+                            غير متصل
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Captains List Container -->
+                <div class="captains-list" id="captainsList">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+
+                <!-- No Results Message -->
+                <div class="no-results" id="noResults" style="display: none;">
+                    <i class="fas fa-search text-muted mb-3" style="font-size: 3rem;"></i>
+                    <h6>لا توجد نتائج</h6>
+                    <p class="text-muted">جرب البحث بكلمات مختلفة</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- Leaflet JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+    // Global variables
+    let map;
+    let captains = [];
+    let markers = [];
+    let currentFilter = 'all';
+    let searchTerm = '';
+
+    // Initialize map
+    function initializeMap() {
+        // Initialize map centered on Baghdad
+        map = L.map('map').setView([33.3152, 44.3661], 11);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Load captains data
+        loadCaptains();
+    }
+
+    // Load captains data from server
+    function loadCaptains() {
+        showLoading(true);
+
+        // TODO: Replace with actual Django URL for captains
+        fetch('/captain_autocomplete_map')
+            .then(response => response.json())
+            .then(data => {
+                captains = data.results || data; // Handle different response formats
+                updateMap();
+                updateSidebar();
+                updateStats();
+                showLoading(false);
+            })
+            .catch(error => {
+                console.error('Error loading captains:', error);
+                showLoading(false);
+                // Show sample data for development
+            });
+    }
+
+
+    // Update map with captains
+    function updateMap() {
+        // Clear existing markers
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+
+        captains.forEach(captain => {
+            if (!captain.latitude || !captain.longitude) return;
+
+            // Determine marker color and icon based on status
+            let markerColor, markerIcon;
+            switch(captain.status) {
+                case 'online':
+                    markerColor = '#28a745';
+                    markerIcon = '🚗';
+                    break;
+                case 'driving':
+                    markerColor = '#007bff';
+                    markerIcon = '🚛';
+                    break;
+                case 'busy':
+                    markerColor = '#ffc107';
+                    markerIcon = '⏸️';
+                    break;
+                case 'offline':
+                    markerColor = '#6c757d';
+                    markerIcon = '⭕';
+                    break;
+            }
+
+            // Create custom marker
+            const customIcon = L.divIcon({
+                className: 'captain-marker',
+                html: `<div class="captain-marker ${captain.status}" style="background: ${markerColor};">
+                        ${markerIcon}
+                       </div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+
+            const marker = L.marker([captain.latitude, captain.longitude], {
+                icon: customIcon
+            }).addTo(map);
+
+            // Create popup content
+            const popupContent = `
+                <div class="text-center">
+                    <strong>${captain.name}</strong><br>
+                    <small>📱 ${captain.phone}</small><br>
+                    <small>🚗 ${captain.vehicle}</small><br>
+                    <small>🔢 ${captain.plate_number}</small><br>
+                    <small>📍 ${captain.city}</small><br>
+                    <small>⏰ آخر تحديث: ${captain.updatedtime}</small><br>
+                    <small>📊 الحالة: ${getStatusText(captain.status)}</small>
+                    ${captain.current_order ? `<br><small>📦 ${captain.current_order}</small>` : ''}
+                </div>
+            `;
+
+            marker.bindPopup(popupContent);
+
+            marker.on('click', function() {
+                highlightCaptain(captain.id);
+            });
+
+            markers.push(marker);
+        });
+    }
+
+    // Get status text in Arabic
+    function getStatusText(status) {
+        switch(status) {
+            case 'online': return 'متاح للعمل';
+            case 'driving': return 'في رحلة';
+            case 'busy': return 'مشغول';
+            case 'offline': return 'غير متصل';
+            default: return 'غير معروف';
+        }
+    }
+
+    // Update sidebar with captains list
+    function updateSidebar() {
+        const listContainer = document.getElementById('captainsList');
+        const noResultsContainer = document.getElementById('noResults');
+        listContainer.innerHTML = '';
+
+        const filteredCaptains = filterCaptains();
+
+        if (filteredCaptains.length === 0) {
+            listContainer.style.display = 'none';
+            noResultsContainer.style.display = 'flex';
+            return;
+        } else {
+            listContainer.style.display = 'block';
+            noResultsContainer.style.display = 'none';
+        }
+
+        filteredCaptains.forEach(captain => {
+            const statusClass = captain.status;
+
+            const captainElement = document.createElement('div');
+            captainElement.className = 'captain-item';
+            captainElement.setAttribute('data-captain-id', captain.id);
+
+            captainElement.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <div class="captain-status ${statusClass}"></div>
+                    <div class="captain-info flex-grow-1">
+                        <h6>${captain.name}</h6>
+                        <div class="captain-details">
+                            هاتف: ${captain.phone} • ID: #${String(captain.id).padStart(3, '0')}
+                        </div>
+                        <div class="captain-vehicle">
+                            <i class="fas fa-car me-1"></i>
+                            ${captain.vehicle} - ${captain.plate_number}
+                        </div>
+                        <div class="captain-location">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            ${captain.city}
+                        </div>
+                        ${captain.current_order ? `
+                        <div class="captain-location">
+                            <i class="fas fa-box me-1"></i>
+                            ${captain.current_order}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">منذ ${captain.last_seen}</small>
+                        <br>
+                        {#<small class="badge bg-${getStatusBadgeColor(captain.status)}">${getStatusText(captain.status)}</small>#}
+                    </div>
+                </div>
+            `;
+
+            captainElement.addEventListener('click', function() {
+                highlightCaptain(captain.id);
+                focusOnCaptain(captain);
+            });
+
+            listContainer.appendChild(captainElement);
+        });
+
+        // Force scroll recalculation
+        setTimeout(() => {
+            listContainer.style.height = listContainer.style.height;
+        }, 100);
+    }
+
+    // Get status badge color
+    function getStatusBadgeColor(status) {
+        switch(status) {
+            case 'online': return 'success';
+            case 'driving': return 'primary';
+            case 'busy': return 'warning';
+            case 'offline': return 'secondary';
+            default: return 'secondary';
+        }
+    }
+
+    // Filter captains based on current filter and search
+    function filterCaptains() {
+        return captains.filter(captain => {
+            // Filter by status
+            if (currentFilter !== 'all') {
+                if (currentFilter !== captain.status) {
+                    return false;
+                }
+            }
+
+            // Filter by search term
+            if (searchTerm) {
+                const searchLower = searchTerm.toLowerCase();
+                return captain.name.toLowerCase().includes(searchLower) ||
+                       captain.phone.includes(searchLower) ||
+                       captain.city.toLowerCase().includes(searchLower) ||
+                       captain.vehicle.toLowerCase().includes(searchLower) ||
+                       captain.plate_number.includes(searchLower);
+            }
+
+            return true;
+        });
+    }
+
+    // Highlight selected captain
+    function highlightCaptain(captainId) {
+        document.querySelectorAll('.captain-item').forEach(item => {
+            item.classList.remove('active');
+        });
+
+        const selectedItem = document.querySelector(`[data-captain-id="${captainId}"]`);
+        if (selectedItem) {
+            selectedItem.classList.add('active');
+        }
+    }
+
+    // Focus map on captain
+    function focusOnCaptain(captain) {
+        if (captain.latitude && captain.longitude) {
+            map.setView([captain.latitude, captain.longitude], 15);
+
+            // Find and open popup
+            markers.forEach(marker => {
+                if (marker.getLatLng().lat === captain.latitude &&
+                    marker.getLatLng().lng === captain.longitude) {
+                    marker.openPopup();
+                }
+            });
+        }
+    }
+
+    // Update statistics
+    function updateStats() {
+        const total = captains.length;
+        let online = 0;
+        let available = 0;
+        let driving = 0;
+        let busy = 0;
+
+        captains.forEach(captain => {
+            if (captain.status !== 'offline') {
+                online++;
+            }
+
+            switch(captain.status) {
+                case 'online':
+                    available++;
+                    break;
+                case 'driving':
+                    driving++;
+                    break;
+                case 'busy':
+                    busy++;
+                    break;
+            }
+        });
+
+        document.getElementById('totalCaptains').textContent = total;
+        document.getElementById('onlineCaptains').textContent = online;
+        document.getElementById('availableCaptains').textContent = available;
+        document.getElementById('drivingCaptains').textContent = driving;
+        document.getElementById('busyCaptains').textContent = busy;
+    }
+
+    // Show/hide loading overlay
+    function showLoading(show) {
+        document.getElementById('mapLoading').style.display = show ? 'flex' : 'none';
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeMap();
+
+        // Search functionality
+        const searchInput = document.getElementById('captainSearch');
+        const clearButton = document.getElementById('clearSearch');
+
+        searchInput.addEventListener('input', function() {
+            searchTerm = this.value;
+            clearButton.style.display = searchTerm ? 'block' : 'none';
+            updateSidebar();
+        });
+
+        clearButton.addEventListener('click', function() {
+            searchInput.value = '';
+            searchTerm = '';
+            this.style.display = 'none';
+            updateSidebar();
+        });
+
+        // Filter functionality
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.addEventListener('click', function() {
+                document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                currentFilter = this.getAttribute('data-filter');
+                updateSidebar();
+            });
+        });
+
+        // Refresh data
+        document.getElementById('refreshData').addEventListener('click', function() {
+            const refreshIcon = document.getElementById('refreshIcon');
+            refreshIcon.classList.add('refresh-btn');
+
+            setTimeout(() => {
+                refreshIcon.classList.remove('refresh-btn');
+            }, 2000);
+
+            loadCaptains();
+        });
+
+        // Map controls
+        document.getElementById('refreshMap').addEventListener('click', function() {
+            loadCaptains();
+        });
+
+        document.getElementById('fitAllMarkers').addEventListener('click', function() {
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        });
+
+        document.getElementById('getCurrentLocation').addEventListener('click', function() {
+            if (navigator.geolocation) {
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        map.setView([position.coords.latitude, position.coords.longitude], 13);
+                        document.getElementById('getCurrentLocation').innerHTML = '<i class="fas fa-location-arrow"></i>';
+                    },
+                    function(error) {
+                        alert('لا يمكن تحديد موقعك الحالي');
+                        document.getElementById('getCurrentLocation').innerHTML = '<i class="fas fa-location-arrow"></i>';
+                    }
+                );
+            }
+        });
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadCaptains, 30000);
+    });
+</script>
+{% endblock %}
